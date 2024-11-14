@@ -67,6 +67,7 @@
         button:hover {
             background-color: #ff3366;
         }
+        /* Dynamic Island Style with Round Progress */
         .dynamic-island {
             position: absolute;
             top: 20px;
@@ -120,6 +121,7 @@
             margin: 0;
             color: #fff;
         }
+        /* Rest Timer Styling */
         .rest-timer {
             position: absolute;
             top: 50%;
@@ -130,6 +132,7 @@
             display: none;
             text-align: center;
         }
+        /* Full-screen Video Styling */
         #video-container {
             position: absolute;
             top: 0;
@@ -169,6 +172,7 @@
     </style>
 </head>
 <body>
+    <!-- Page 1: Exercise Selection -->
     <div id="question1" class="page active">
         <h1>Select Your Exercise</h1>
         <label for="exercise">What exercise would you like to do?</label>
@@ -201,11 +205,13 @@
         <button onclick="startExercise()">Start Exercise</button>
     </div>
 
+    <!-- Page 2: Exercise Tracking with Full-Screen Video -->
     <div id="exercisePage" class="page">
         <div id="video-container">
             <video id="webcam" autoplay playsinline></video>
             <canvas id="output"></canvas>
         </div>
+        <!-- Dynamic Island with Round Progress Bar -->
         <div class="dynamic-island" id="counter">
             <div class="circle-progress">
                 <svg>
@@ -218,9 +224,11 @@
                 <h2 id="exercise-name"></h2>
             </div>
         </div>
+        <!-- Rest Timer Display -->
         <div class="rest-timer" id="rest-timer">Rest: <span id="timer">0</span>s</div>
     </div>
 
+    <!-- Page 3: Exercise Completed -->
     <div id="completedPage" class="page">
         <div class="completed-message">EXERCISE COMPLETED</div>
         <button class="home-button" onclick="goToHome()">Go to Home</button>
@@ -245,8 +253,7 @@
         const restCountdown = document.getElementById('timer');
 
         let exercise, sets, repsPerSet, currentReps, currentSet, restTime, stage;
-        let resting = false;
-        const circleCircumference = 251.2;
+        const circleCircumference = 251.2; // Circumference based on radius in SVG (r=40)
 
         function startExercise() {
             exercise = document.getElementById('exercise').value;
@@ -270,9 +277,116 @@
             counterElement.innerText = currentReps;
         }
 
-        function incrementReps() {
-            if (resting) return;
+        function initializeExerciseTracking() {
+            const pose = new Pose({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+            });
+            pose.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.6
+            });
 
+            pose.onResults(onPoseResults);
+            setupCamera(pose);
+        }
+
+        async function setupCamera(pose) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 1280, height: 720 }
+                });
+                videoElement.srcObject = stream;
+
+                videoElement.onloadedmetadata = () => {
+                    videoElement.play();
+                    canvasElement.width = videoElement.videoWidth;
+                    canvasElement.height = videoElement.videoHeight;
+
+                    const camera = new Camera(videoElement, {
+                        onFrame: async () => {
+                            await pose.send({ image: videoElement });
+                        },
+                        width: 1280,
+                        height: 720
+                    });
+                    camera.start();
+                };
+            } catch (error) {
+                console.error("Error setting up camera:", error);
+            }
+        }
+
+        function onPoseResults(results) {
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            if (results.poseLandmarks) {
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS,
+                               { color: '#00FF00', lineWidth: 4 });
+                drawLandmarks(canvasCtx, results.poseLandmarks,
+                              { color: '#FF0000', lineWidth: 2 });
+
+                if (exercise === "squats") {
+                    trackSquats(results.poseLandmarks);
+                } else if (exercise === "curls") {
+                    trackCurls(results.poseLandmarks);
+                } else if (exercise === "jumpingjacks") {
+                    trackJumpingJacks(results.poseLandmarks);
+                }
+            }
+        }
+
+        function calculateAngle(a, b, c) {
+            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            if (angle > 180.0) angle = 360 - angle;
+            return angle;
+        }
+
+        function trackSquats(landmarks) {
+            const hip = landmarks[24];
+            const knee = landmarks[26];
+            const ankle = landmarks[28];
+            const angle = calculateAngle(hip, knee, ankle);
+
+            if (angle > 160) stage = "up";
+            if (angle < 70 && stage === "up") {
+                stage = "down";
+                incrementReps();
+            }
+        }
+
+        function trackCurls(landmarks) {
+            const shoulder = landmarks[12];
+            const elbow = landmarks[14];
+            const wrist = landmarks[16];
+            const angle = calculateAngle(shoulder, elbow, wrist);
+
+            if (angle > 160) stage = "down";
+            if (angle < 30 && stage === "down") {
+                stage = "up";
+                incrementReps();
+            }
+        }
+
+        function trackJumpingJacks(landmarks) {
+            const leftShoulder = landmarks[11];
+            const rightShoulder = landmarks[12];
+            const leftWrist = landmarks[15];
+            const rightWrist = landmarks[16];
+            const leftHandAboveShoulder = leftWrist.y < leftShoulder.y - 0.15;
+            const rightHandAboveShoulder = rightWrist.y < rightShoulder.y - 0.15;
+
+            if (leftHandAboveShoulder && rightHandAboveShoulder) {
+                stage = "up";
+            } else if (stage === "up" && !leftHandAboveShoulder && !rightHandAboveShoulder) {
+                stage = "down";
+                incrementReps();
+            }
+        }
+
+        function incrementReps() {
             currentReps++;
             updateProgress();
 
@@ -288,7 +402,6 @@
         }
 
         function startRestTimer() {
-            resting = true;
             restTimerElement.style.display = 'block';
             let timeLeft = restTime;
             restCountdown.innerText = timeLeft;
@@ -299,7 +412,6 @@
                 if (timeLeft <= 0) {
                     clearInterval(restInterval);
                     restTimerElement.style.display = 'none';
-                    resting = false;
                 }
             }, 1000);
         }
