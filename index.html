@@ -425,6 +425,74 @@
             document.getElementById('completedPage').classList.remove('active');
             document.getElementById('question1').classList.add('active');
         }
+        let exercise, sets, repsPerSet, currentReps, currentSet, restTime, stage;
+    let resting = false; // New variable to track if it's rest time
+    const circleCircumference = 251.2; // Circumference based on radius in SVG (r=40)
+
+    function startExercise() {
+        exercise = document.getElementById('exercise').value;
+        sets = parseInt(document.getElementById('sets').value);
+        repsPerSet = parseInt(document.getElementById('reps').value);
+        restTime = parseInt(document.getElementById('restTime').value);
+        currentReps = 0;
+        currentSet = 1;
+        stage = null;
+
+        exerciseNameElement.innerText = exercise.charAt(0).toUpperCase() + exercise.slice(1);
+        document.getElementById('question4').classList.remove('active');
+        document.getElementById('exercisePage').classList.add('active');
+
+        initializeExerciseTracking();
+    }
+
+    function updateProgress() {
+        const progress = (currentReps / repsPerSet) * circleCircumference;
+        progressCircle.style.strokeDashoffset = circleCircumference - progress;
+        counterElement.innerText = currentReps;
+    }
+
+    function incrementReps() {
+        if (resting) return; // Prevent counting if resting
+
+        currentReps++;
+        updateProgress();
+
+        if (currentReps >= repsPerSet) {
+            currentReps = 0;
+            currentSet++;
+            if (currentSet > sets) {
+                showCompletionPage();
+            } else {
+                startRestTimer();
+            }
+        }
+    }
+
+    function startRestTimer() {
+        resting = true; // Set resting to true
+        restTimerElement.style.display = 'block';
+        let timeLeft = restTime;
+        restCountdown.innerText = timeLeft;
+
+        const restInterval = setInterval(() => {
+            timeLeft--;
+            restCountdown.innerText = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(restInterval);
+                restTimerElement.style.display = 'none';
+                resting = false; // End rest period and allow counting again
+            }
+        }, 1000);
+    }
+
+    function showCompletionPage() {
+        document.getElementById('exercisePage').classList.remove('active');
+        document.getElementById('completedPage').classList.add('active');
+    }
+
+    function goToHome() {
+        document.getElementById('completedPage').classList.remove('active');
+        document.getElementById('question1').classList.add('active');}
     </script>
 </body>
 </html>
