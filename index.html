@@ -67,7 +67,6 @@
         button:hover {
             background-color: #ff3366;
         }
-        /* Dynamic Island Style with Round Progress */
         .dynamic-island {
             position: absolute;
             top: 20px;
@@ -121,7 +120,6 @@
             margin: 0;
             color: #fff;
         }
-        /* Rest Timer Styling */
         .rest-timer {
             position: absolute;
             top: 50%;
@@ -132,7 +130,6 @@
             display: none;
             text-align: center;
         }
-        /* Full-screen Video Styling */
         #video-container {
             position: absolute;
             top: 0;
@@ -211,7 +208,6 @@
             <video id="webcam" autoplay playsinline></video>
             <canvas id="output"></canvas>
         </div>
-        <!-- Dynamic Island with Round Progress Bar -->
         <div class="dynamic-island" id="counter">
             <div class="circle-progress">
                 <svg>
@@ -224,7 +220,6 @@
                 <h2 id="exercise-name"></h2>
             </div>
         </div>
-        <!-- Rest Timer Display -->
         <div class="rest-timer" id="rest-timer">Rest: <span id="timer">0</span>s</div>
     </div>
 
@@ -253,7 +248,8 @@
         const restCountdown = document.getElementById('timer');
 
         let exercise, sets, repsPerSet, currentReps, currentSet, restTime, stage;
-        const circleCircumference = 251.2; // Circumference based on radius in SVG (r=40)
+        let isResting = false; // Flag to track rest status
+        const circleCircumference = 251.2;
 
         function startExercise() {
             exercise = document.getElementById('exercise').value;
@@ -321,7 +317,7 @@
 
         function onPoseResults(results) {
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            if (results.poseLandmarks) {
+            if (results.poseLandmarks && !isResting) {
                 drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS,
                                { color: '#00FF00', lineWidth: 4 });
                 drawLandmarks(canvasCtx, results.poseLandmarks,
@@ -387,6 +383,8 @@
         }
 
         function incrementReps() {
+            if (isResting) return;
+
             currentReps++;
             updateProgress();
 
@@ -402,6 +400,7 @@
         }
 
         function startRestTimer() {
+            isResting = true;
             restTimerElement.style.display = 'block';
             let timeLeft = restTime;
             restCountdown.innerText = timeLeft;
@@ -412,6 +411,7 @@
                 if (timeLeft <= 0) {
                     clearInterval(restInterval);
                     restTimerElement.style.display = 'none';
+                    isResting = false;
                 }
             }, 1000);
         }
